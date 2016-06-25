@@ -1,0 +1,25 @@
+parameters:
+  KeyName: heat_key
+  InstanceType: m1.micro
+  ImageId: F18-x86_64-cfntools
+
+#######################################
+# You can define default values for all template arguments in the parameter_defaults
+# section of an environment file. These defaults are passed into all template resources:
+parameter_defaults:
+  KeyName: heat_key
+#######################################
+# You can map one resource to another in the resource_registry section of an environment file.
+resource_registry:
+  "OS::Networking::FloatingIP": "OS::Nova::FloatingIP"
+
+resource_registry:
+  "OS::Network*": "OS::Neutron*"
+
+resource_registry:
+  "AWS::EC2::Instance": file:///path/to/my_instance.yaml
+
+resource_registry:
+  resources:
+    my_db_server:
+      "OS::DBInstance": file:///home/mine/all_my_cool_templates/db.yaml

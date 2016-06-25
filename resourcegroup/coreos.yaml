@@ -1,0 +1,156 @@
+heat_template_version: 2015-10-15
+
+description: Deploy a CoreOS cluster
+
+parameters:
+  count:
+    description: Number of CoreOS machines to deploy
+    type: number
+    default: 3
+    constraints:
+    - range:
+        min: 1
+        max: 10
+      description: Must be between 1 and 10 servers.
+  key_name:
+    type: string
+    description: Name of key-pair to be used for compute instance
+  flavor:
+    type: string
+    default: dc1.1x1.20
+    constraints:
+    - allowed_values:
+      - dc1.1x1.20
+      - dc1.1x2.20
+      - dc1.2x2.40
+      - dc1.2x4.40
+      - dc1.2x8.40
+      - dc1.4x16
+      - dc1.8x16
+      description: |
+        Must be a valid DataCentred Compute Cloud flavour
+  image_id:
+    type: string
+    label: CoreOS image ID
+    default: 9d8d2945-e699-469a-ac24-c63885f621ca
+  public_net_id:
+    type: string
+    label: Public network ID
+    description: ID of the public network to use
+  discovery_url:
+    type: string
+    label: Cluster discovery URL such as one generated from https://discovery.etcd.io/new
+  name:
+    type: string
+    description: Name of each CoreOS machine booted
+    default: CoreOS-stable
+
+resources:
+  security_group:
+    type: OS::Neutron::SecurityGroup
+    properties:
+      description: Security Group
+      name: core-security-group
+      rules:
+        - remote_ip_prefix: 0.0.0.0/0
+          protocol: tcp
+          port_range_min: 0
+          port_range_max: 65535
+        - remote_ip_prefix: 0.0.0.0/0
+          protocol: udp
+          port_range_min: 0
+          port_range_max: 65535
+        - remote_ip_prefix: 0.0.0.0/0
+          protocol: icmp
+  private_net:
+    type: OS::Neutron::Net
+    properties:
+      admin_state_up: true
+      name: core-net
+  private_subnet:
+    type: OS::Neutron::Subnet
+    properties:
+      name: core-subnet
+      cidr: 192.168.10.0/24
+      gateway_ip: 192.168.10.1
+      allocation_pools:
+        - start: 192.168.10.20
+          end: 192.168.10.99
+      dns_nameservers: [8.8.8.8, 8.8.4.4]
+      enable_dhcp: true
+      network_id: { get_resource: private_net }
+  router:
+    type: OS::Neutron::Router
+    properties:
+      name: core-router
+      admin_state_up: true
+  router_gw:
+    type: OS::Neutron::RouterGateway
+    properties:
+      network_id: { get_param: public_net_id }
+      router_id: { get_resource: router }
+  router_interface:
+    type: OS::Neutron::RouterInterface
+    properties:
+      router_id: { get_resource: router }
+      subnet_id: { get_resource: private_subnet }
+
+resources:
+  my_indexed_group:
+    type: OS::Heat::ResourceGroup
+    properties:
+      count: 3
+      resource_def:
+        type: OS::Nova::Server
+        properties:
+          # create a unique name for each server
+          # using its index in the group
+          name: my_server_%index%
+          image: CentOS 6.5
+          flavor: 4GB Performance
+#######################################
+resources:
+  machines:
+    type: "OS::Heat::ResourceGroup"
+    depends_on: private_net
+    properties:
+      count: { get_param: count }
+      resource_def:
+        type: OS::Nova::Server
+        properties:
+          key_name: { get_param: key_name }
+          image: { get_param: image_id }
+          networks:
+              - network: { get_resource: private_net }
+          flavor: { get_param: flavor }
+          name:
+            # create a unique name for each server using its index in the group
+            str_replace:
+              template:
+                $name-$index
+              params:
+                $name: { get_param: name }
+                $index: "%index%"
+          user_data_format: RAW
+          user_data:
+            str_replace:
+              template: |
+                #cloud-config
+                coreos:
+                  etcd:
+                    discovery: $discovery_url$
+                    # multi-region and multi-cloud deployments need to use $public_ipv4
+                    addr: $private_ipv4:4001
+                    peer-addr: $private_ipv4:7001
+                  units:
+                    - name: etcd.service
+                      command: start
+                    - name: fleet.service
+                      command: start
+              params:
+                $discovery_url$: { get_param: discovery_url }
+
+outputs:
+  key_pair:
+    description: SSH key-pair for this cluster
+    value: { get_param: key_name }

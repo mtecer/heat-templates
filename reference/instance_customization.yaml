@@ -1,0 +1,149 @@
+resources:
+   the_server:
+     type: OS::Nova::Server
+     properties:
+       # flavor, image etc
+       user_data: |
+         #!/bin/bash
+         echo "Running boot script"
+#######################################
+parameters:
+  foo:
+    default: bar
+
+resources:
+  the_server:
+    type: OS::Nova::Server
+    properties:
+      # flavor, image etc
+      user_data:
+        str_replace:
+          template: |
+            #!/bin/bash
+            echo "Running boot script with $FOO"
+            # ...
+          params:
+           $FOO: {get_param: foo}
+#######################################
+parameters:
+  foo:
+    default: bar
+
+resources:
+  the_server:
+    type: OS::Nova::Server
+    properties:
+      # flavor, image etc
+      user_data:
+        str_replace:
+          template: {get_file: the_server_boot.sh}
+          params:
+            $FOO: {get_param: foo}
+#######################################
+# For RAW the user_data is passed to Nova unmodified. For a Cloud-init enabled image,
+# the following are both valid RAW user-data.
+resources:
+  server_with_boot_script:
+    type: OS::Nova::Server
+    properties:
+      # flavor, image etc
+      user_data_format: RAW
+      user_data: |
+        #!/bin/bash
+        echo "Running boot script"
+# or
+  server_with_cloud_config:
+    type: OS::Nova::Server
+    properties:
+      # flavor, image etc
+      user_data_format: RAW
+      user_data: |
+        #cloud-config
+        final_message: "The system is finally up, after $UPTIME seconds"
+#######################################
+# Boot configuration scripts can also be managed as their own resources
+resources:
+  boot_script:
+    type: OS::Heat::SoftwareConfig
+    properties:
+      group: ungrouped
+      config: |
+        #!/bin/bash
+        echo "Running boot script"
+
+  server_with_boot_script:
+    type: OS::Nova::Server
+    properties:
+      # flavor, image etc
+      user_data_format: RAW
+      user_data: {get_resource: boot_script}
+#######################################
+parameters:
+  file_content:
+    type: string
+    description: The contents of the file /tmp/file
+
+resources:
+  boot_config:
+    type: OS::Heat::CloudConfig
+    properties:
+      cloud_config:
+        write_files:
+        - path: /tmp/file
+          content: {get_param: file_content}
+
+  server_with_cloud_config:
+    type: OS::Nova::Server
+    properties:
+      # flavor, image etc
+      user_data_format: RAW
+      user_data: {get_resource: boot_config}
+#######################################
+# MultiPart MIME
+parameters:
+  file_content:
+    type: string
+    description: The contents of the file /tmp/file
+  other_config:
+    type: string
+    description: The ID of a software-config resource created elsewhere
+
+resources:
+  boot_config:
+    type: OS::Heat::CloudConfig
+    properties:
+      cloud_config:
+        write_files:
+        - path: /tmp/file
+          content: {get_param: file_content}
+
+  boot_script:
+    type: OS::Heat::SoftwareConfig
+    properties:
+      group: ungrouped
+      config: |
+        #!/bin/bash
+        echo "Running boot script"
+
+  server_init:
+    type: OS::Heat::MultipartMime
+    properties:
+      parts:
+      - config: {get_resource: boot_config}
+      - config: {get_resource: boot_script}
+      - config: {get_param: other_config}
+
+  server:
+    type: OS::Nova::Server
+    properties:
+      # flavor, image etc
+      user_data_format: RAW
+      user_data: {get_resource: server_init}
+#######################################
+user_data:
+  str_replace:
+    template: { get_file:  "http://haasaet.web.att.com/depot/hot-skel.sh" }
+    params:
+      $APP_HOST_IP_ENV: { get_param: db_server_ip }
+      $HOTSKEL1: { get_file:  "http://haasaet.web.att.com/depot/deploy-chef-client-as3525.sh" }
+      $HOTSKEL2: { get_file:  "http://haasaet.web.att.com/depot/milestone2-app-only.sh" }

@@ -1,0 +1,2 @@
+resource_registry:
+  OS::Nova::Server::Cirros: file:///var/www/html/heat/redhat/cirros.yaml

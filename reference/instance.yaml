@@ -1,0 +1,180 @@
+resources:
+   instance_port:
+     type: OS::Neutron::Port
+     properties:
+       network: private
+       fixed_ips:
+         - subnet_id: "private-subnet"
+
+   instance1:
+     type: OS::Nova::Server
+     properties:
+       flavor: m1.small
+       image: ubuntu-trusty-x86_64
+       networks:
+         - port: { get_resource: instance_port }
+
+   instance2:
+     type: OS::Nova::Server
+     properties:
+       flavor: m1.small
+       image: ubuntu-trusty-x86_64
+       networks:
+         - network: private
+#######################################
+resources:
+   web_secgroup:
+     type: OS::Neutron::SecurityGroup
+     properties:
+       rules:
+         - protocol: tcp
+           remote_ip_prefix: 0.0.0.0/0
+           port_range_min: 80
+           port_range_max: 80
+         - protocol: tcp
+           remote_ip_prefix: 0.0.0.0/0
+           port_range_min: 443
+           port_range_max: 443
+
+   instance_port:
+     type: OS::Neutron::Port
+     properties:
+       network: private
+       security_groups:
+         - default
+         - { get_resource: web_secgroup }
+       fixed_ips:
+         - subnet_id: private-subnet
+
+   instance:
+     type: OS::Nova::Server
+     properties:
+       flavor: m1.small
+       image: ubuntu-trusty-x86_64
+       networks:
+         - port: { get_resource: instance_port }
+#######################################
+resources:
+   floating_ip:
+     type: OS::Nova::FloatingIP
+     properties:
+       pool: public
+
+   instance:
+     type: OS::Nova::Server
+     properties:
+       flavor: m1.small
+       image: ubuntu-trusty-x86_64
+       networks:
+         - network: private
+
+   association:
+     type: OS::Nova::FloatingIPAssociation
+     properties:
+       floating_ip: { get_resource: floating_ip }
+       server_id: { get_resource: instance }
+#######################################
+parameters:
+   net:
+     description: name of network used to launch instance.
+     type: string
+     default: private
+
+ resources:
+   instance:
+     type: OS::Nova::Server
+     properties:
+       flavor: m1.small
+       image: ubuntu-trusty-x86_64
+       networks:
+         - network: {get_param: net}
+
+   floating_ip:
+     type: OS::Neutron::FloatingIP
+     properties:
+       floating_network: public
+
+   association:
+     type: OS::Neutron::FloatingIPAssociation
+     properties:
+       floatingip_id: { get_resource: floating_ip }
+       port_id: {get_attr: [instance, addresses, {get_param: net}, 0, port]}
+#######################################
+# Create private key and display in output
+resources:
+   my_key:
+     type: OS::Nova::KeyPair
+     properties:
+       save_private_key: true
+       name: my_key
+
+   my_instance:
+     type: OS::Nova::Server
+     properties:
+       flavor: m1.small
+       image: ubuntu-trusty-x86_64
+       key_name: { get_resource: my_key }
+
+ outputs:
+   private_key:
+     description: Private key
+     value: { get_attr: [ my_key, private_key ] }
+#######################################
+# Empty Volume
+resources:
+   my_new_volume:
+     type: OS::Cinder::Volume
+     properties:
+       size: 10
+#######################################
+# Bootable Volume
+resources:
+   my_new_bootable_volume:
+     type: OS::Cinder::Volume
+     properties:
+       size: 10
+       image: ubuntu-trusty-x86_64
+#######################################
+# Use the source_volid, snapshot_id or backup_id properties to create a new volume from an existing source.
+resources:
+  another_volume:
+    type: OS::Cinder::Volume
+    properties:
+      backup_id: 2fff50ab-1a9c-4d45-ae60-1d054d6bc868
+#######################################
+# Volume Attachment
+resources:
+   new_volume:
+     type: OS::Cinder::Volume
+     properties:
+       size: 1
+
+   instance:
+     type: OS::Nova::Server
+     properties:
+       flavor: m1.small
+       image: ubuntu-trusty-x86_64
+
+   volume_attachment:
+     type: OS::Cinder::VolumeAttachment
+     properties:
+       volume_id: { get_resource: new_volume }
+       instance_uuid: { get_resource: instance }
+#######################################
+resources:
+   bootable_volume:
+     type: OS::Cinder::Volume
+     properties:
+       size: 10
+       image: ubuntu-trusty-x86_64
+
+   instance:
+     type: OS::Nova::Server
+     properties:
+       flavor: m1.small
+       networks:
+         - network: private
+       block_device_mapping:
+         - device_name: vda
+           volume_id: { get_resource: bootable_volume }
+           delete_on_termination: false

@@ -1,0 +1,21 @@
+parameters:
+  # ...
+
+  cluster_size:
+    type: number
+    label: Cluster size
+    description: Number of instances in cluster.
+    default: 2
+
+resources:
+  tiny_cluster:
+    type: OS::Heat::ResourceGroup
+    properties:
+      count: { get_param: cluster_size }
+      resource_def:
+        type: Lib::MSG::Tiny
+        properties:
+          image: { get_param: image }
+          flavor: { get_param: flavor }
+          key: { get_param: key }
+          private_network: { get_param: private_network }

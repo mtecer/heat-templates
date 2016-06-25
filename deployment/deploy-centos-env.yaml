@@ -1,0 +1,5 @@
+parameters:
+  image_id: CentOS-7.2.1604-heat
+  instance_type: m1.small
+  key_name: admin
+  network: admin

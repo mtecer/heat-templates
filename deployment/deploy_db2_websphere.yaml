@@ -1,0 +1,176 @@
+heat_template_version: 2015-10-15
+
+parameters:
+  key_name:
+    type: string
+  flavor:
+    type: string
+  image:
+    type: string
+  private_net_id:
+    type: string
+    description: ID of private network into which servers get deployed
+  private_subnet_id:
+    type: string
+    description: ID of private sub network into which servers get deployed
+  public_net_id:
+    type: string
+    description: >
+      ID of public network for which floating IP addresses will be allocated
+
+resources:
+  db2_server:
+    type: OS::Nova::Server
+    properties:
+      image:
+        get_param: image
+      flavor:
+        get_param: flavor
+      key_name:
+        get_param: key_name
+      user_data_format: SOFTWARE_CONFIG
+
+  wlp_server:
+    type: OS::Nova::Server
+    properties:
+      image:
+        get_param: image
+      flavor:
+        get_param: flavor
+      key_name:
+        get_param: key_name
+      user_data_format: SOFTWARE_CONFIG
+      networks:
+        - port: { get_resource: wlp_server_port }
+
+  wlp_server_port:
+    type: OS::Neutron::Port
+    properties:
+      network_id: { get_param: private_net_id }
+      fixed_ips:
+        - subnet_id: { get_param: private_subnet_id }
+
+  external_ip:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network_id: { get_param: public_net_id }
+      port_id: { get_resource: wlp_server_port }
+
+  db2_config:
+    type: OS::Heat::SoftwareConfig
+    properties:
+      inputs:
+      - name: previous
+        default: 'NONE'
+      group: script
+      config:
+        str_replace:
+          template: |
+            #!/bin/bash
+
+            #Install DB2
+            chef-client -o "recipe[db2]","recipe[db2::start]"
+
+            #Allow sudo to run w/o access to tty
+            sed -i 's/^Defaults    requiretty.*/#Defaults    requiretty/g' /etc/sudoers
+
+            # Create database SAMPLE
+            sudo -H -u db2inst1 bash -c ". ~/.bash_profile && db2sampl"
+
+            #restore stdout and stderr
+            #cat /tmp/db2.rsp
+            ifconfig eth0 | grep 'inet addr:' | cut -d: -f2 | awk '{ print $1}'
+
+  db2_deployment:
+    type: OS::Heat::SoftwareDeployment
+    properties:
+      config:
+        get_resource: db2_config
+      server:
+        get_resource: db2_server
+
+  wlp_config:
+    type: OS::Heat::SoftwareConfig
+    properties:
+      inputs:
+      - name: DB2SERVERNAME
+        default: '192.168.1.1'
+      group: script
+      config:
+        str_replace:
+          template: |
+            #!/bin/bash
+
+            # Liberty Profile
+            tee defaultServer.json <<EOF
+            {
+              "wlp": {
+                    "dataSource": {
+                      "id": "db",
+                      "jndiName": "jdbc/db",
+                      "connectionSharing": "MatchCurrentState",
+                      "isolationLevel": "TRANSACTION_READ_COMMITTED",
+                      "jdbcDriver": {
+                        "libraryRef": "DBLib"
+                      },
+
+                      "properties.db2.jcc": {
+                        "databaseName": "SAMPLE",
+                        "serverName": "$DB2SERVERNAME",
+                        "portNumber": "50000",
+                        "currentLockTimeout": "30s",
+                        "user": "db2inst1",
+                        "password": "passw0rd"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            EOF
+
+            #Install Websphere Liberty Profile
+            chef-client -r "recipe[wlp]","recipe[wlp::serverconfig]" -j defaultServer.json
+
+            #restore stdout and stderr
+            echo "defaultServer"
+
+  wlp_deployment:
+    type: OS::Heat::SoftwareDeployment
+    depends_on: db2_deployment
+    properties:
+      config:
+        get_resource: wlp_config
+      server:
+        get_resource: wlp_server
+      input_values:
+        DB2SERVERNAME: { get_attr: [ db2_server, networks, admin-net, 0 ] }
+
+  wcc_config:
+    type: OS::Heat::SoftwareConfig
+    properties:
+      inputs:
+      - name: WLPSERVER
+      group: script
+      config:
+        str_replace:
+          template: |
+            #!/bin/bash
+            export DROPINS="/opt/was/liberty/wlp/usr/servers/$WLPSERVER/dropins"
+            cd $DROPINS
+            wget http://10.10.0.1/repos/applications/WebCustomerCredit/WebCustomerCredit.war
+            bash -c "/opt/was/liberty/wlp/bin/server start $WLPSERVER"
+            echo "http://%ip%:9080/WebCustomerCredit/"
+          params:
+            "%ip%": { get_attr: [ external_ip, floating_ip_address ] }
+
+  wcc_deployment:
+    type: OS::Heat::SoftwareDeployment
+    depends_on: wlp_deployment
+    properties:
+      config:
+        get_resource: wcc_config
+      server:
+        get_resource: wlp_server
+      input_values:
+        WLPSERVER: { get_attr: [wlp_deployment, deploy_stdout] }

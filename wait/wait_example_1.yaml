@@ -1,0 +1,51 @@
+heat_template_version: 2015-10-15
+
+resources:
+  wait_condition:
+    type: OS::Heat::WaitCondition
+    properties:
+      handle: {get_resource: wait_handle}
+      timeout: 60
+
+  wait_handle:
+    type: OS::Heat::WaitConditionHandle
+
+  supervisor:
+    type: OS::Nova::Server
+    properties:
+      image: "Ubuntu 14.04 amd64"
+      flavor: m1.small
+      key_name: jordan
+      name: supervisor
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          params:
+            wc_notify_sup_ready: { get_attr: ['wait_handle', 'curl_cli'] }
+          template: |
+            #!/bin/bash
+            set -x
+            wc_notify_sup_ready --data-binary '{"status": "SUCCESS", "data": "foo"}'
+
+outputs:
+  nodes_ip:
+    description: Data1
+    value: { get_attr: ['wait_condition', 'data'] }
+  nodes_ip2:
+    description: Data2
+    value: { get_attr: ['wait_condition', 'data', "1"] }
+  nodes_ip3:
+    description: Data3
+    value: { get_attr: ['wait_condition', 'data', 1] }
+  nodes_ip4:
+    description: Data4
+    value: { get_attr: ['wait_condition', data, "1"] }
+  nodes_ip5:
+    description: Data5
+    value: { get_attr: ['wait_condition', data, 1] }
+  nodes_ip6:
+    description: Data6
+    value: { get_attr: [wait_condition, data, 1] }
+  nodes_ip7:
+    description: Data7
+    value: { get_attr: [wait_condition, data, "1"] }

@@ -1,0 +1,25 @@
+parameters:
+  # ...
+  public_network:
+    type: string
+    label: Public network name or ID
+    description: Network to attach server to.
+    default: public
+
+resources:
+  network:
+    type: lib/private_network.yaml
+    properties:
+    public_network: { get_param: public_network }
+
+  mysql:
+    type: lib/mysql.yaml
+    properties:
+      private_network: { get_attr: [network, name] }
+      # ...
+
+  wordpress:
+    type: lib/wordpress.yaml
+    properties:
+      private_network: { get_attr: [network, name] }
+      # ...

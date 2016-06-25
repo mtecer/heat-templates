@@ -1,0 +1,27 @@
+heat_template_version: 2014-10-16 
+
+description: A base Cirros 0.3.4 server
+
+resources:
+  port:
+    type: OS::Neutron::Port
+    properties:
+      network: net55
+      security_groups:
+        - default 
+  volume:
+    type: OS::Cinder::Volume
+    properties:
+      image: 'CirrOS-0.3.4'
+      size: 1
+  server:
+    type: OS::Nova::Server 
+    properties:
+      block_device_mapping:
+        - device_name: vda
+          delete_on_termination: true
+          volume_id: { get_resource: volume } 
+      flavor: m1.medium
+      key_name: CloudOps
+      networks:
+        - port: { get_resource: port }

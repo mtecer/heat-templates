@@ -1,0 +1,111 @@
+# Type                    Description           Examples
+# string                  A literal string.     “String param”
+# number                  An integer or float.  “2”; “0.2”
+# comma_delimited_list                          [“one”, “two”]; “one, two”; Note: “one, two” returns [“one”, ” two”]
+# An array of literal strings that are separated by commas. The total number of strings
+# should be one more than the total number of commas.
+# json                    A JSON-formatted map or list.     {“key”: “value”}
+# boolean
+# Boolean type value, which can be equal “t”, “true”, “on”, “y”, “yes”, or “1” for true value and “f”,
+# “false”, “off”, “n”, “no”, or “0” for false value.   “on”; “n”
+#######################################
+parameters:
+  user_name:
+    type: string
+    label: User Name
+    description: User name to be configured for the application
+  port_number:
+    type: number
+    label: Port Number
+    description: Port number to be configured for the web server
+    constraints:
+      - <constraint type>: <constraint definition>
+        description: <constraint description>
+#######################################
+parameters:
+  user_name:
+    type: string
+    label: User Name
+    description: User name to be configured for the application
+    constraints:
+      - length: { min: 6, max: 8 }
+        description: User name must be between 6 and 8 characters
+      - allowed_pattern: "[A-Z]+[a-zA-Z0-9]*"
+        description: User name must start with an uppercase character
+  instance_type:
+    type: string
+    label: Instance Type
+    description: Instance type for compute instances
+    constraints:
+      - allowed_values:
+        - m1.small
+        - m1.medium
+        - m1.large
+
+# The custom_constraint constraint adds an extra step of validation,
+# generally to check that the specified resource exists in the backend.
+parameters:
+  key_name
+    type: string
+    description: SSH key pair
+    constraints:
+      - custom_constraint: nova.keypair
+
+# Name              Plug-in
+# barbican.secret  heat.engine.clients.os.barbican:SecretConstraint
+# cinder.backup  heat.engine.clients.os.cinder:VolumeBackupConstraint
+# cinder.snapshot  heat.engine.clients.os.cinder:VolumeSnapshotConstraint
+# cinder.volume  heat.engine.clients.os.cinder:VolumeConstraint
+# cinder.vtype  heat.engine.clients.os.cinder:VolumeTypeConstraint
+# cron_expression  heat.engine.constraint.common_constraints:CRONExpressionConstraint
+# designate.domain  heat.engine.clients.os.designate:DesignateDomainConstraint
+# glance.image  heat.engine.clients.os.glance:ImageConstraint
+# ip_addr  heat.engine.constraint.common_constraints:IPConstraint
+# iso_8601  heat.engine.constraint.common_constraints:ISO8601Constraint
+# keystone.domain  heat.engine.clients.os.keystone:KeystoneDomainConstraint
+# keystone.group  heat.engine.clients.os.keystone:KeystoneGroupConstraint
+# keystone.project  heat.engine.clients.os.keystone:KeystoneProjectConstraint
+# keystone.region  heat.engine.clients.os.keystone:KeystoneRegionConstraint
+# keystone.role  heat.engine.clients.os.keystone:KeystoneRoleConstraint
+# keystone.service  heat.engine.clients.os.keystone:KeystoneServiceConstraint
+# keystone.user  heat.engine.clients.os.keystone:KeystoneUserConstraint
+# mac_addr  heat.engine.constraint.common_constraints:MACConstraint
+# magnum.baymodel  heat.engine.clients.os.magnum:BaymodelConstraint
+# manila.share_network  heat.engine.clients.os.manila:ManilaShareNetworkConstraint
+# manila.share_snapshot  heat.engine.clients.os.manila:ManilaShareSnapshotConstraint
+# manila.share_type  heat.engine.clients.os.manila:ManilaShareTypeConstraint
+# monasca.notification  heat.engine.clients.os.monasca:MonascaNotificationConstraint
+# net_cidr  heat.engine.constraint.common_constraints:CIDRConstraint
+# neutron.address_scope  heat.engine.clients.os.neutron.neutron_constraints:AddressScopeConstraint
+# neutron.lb.provider  heat.engine.clients.os.neutron.neutron_constraints:LBaasV1ProviderConstraint
+# neutron.lbaas.listener  heat.engine.clients.os.neutron.lbaas_constraints:ListenerConstraint
+# neutron.lbaas.loadbalancer  heat.engine.clients.os.neutron.lbaas_constraints:LoadbalancerConstraint
+# neutron.lbaas.pool  heat.engine.clients.os.neutron.lbaas_constraints:PoolConstraint
+# neutron.lbaas.provider  heat.engine.clients.os.neutron.lbaas_constraints:LBaasV2ProviderConstraint
+# neutron.network  heat.engine.clients.os.neutron.neutron_constraints:NetworkConstraint
+# neutron.port  heat.engine.clients.os.neutron.neutron_constraints:PortConstraint
+# neutron.qos_policy  heat.engine.clients.os.neutron.neutron_constraints:QoSPolicyConstraint
+# neutron.router  heat.engine.clients.os.neutron.neutron_constraints:RouterConstraint
+# neutron.subnet  heat.engine.clients.os.neutron.neutron_constraints:SubnetConstraint
+# neutron.subnetpool  heat.engine.clients.os.neutron.neutron_constraints:SubnetPoolConstraint
+# nova.flavor  heat.engine.clients.os.nova:FlavorConstraint
+# nova.host  heat.engine.clients.os.nova:HostConstraint
+# nova.keypair  heat.engine.clients.os.nova:KeypairConstraint
+# nova.network  heat.engine.clients.os.nova:NetworkConstraint
+# nova.server  heat.engine.clients.os.nova:ServerConstraint
+# sahara.image  heat.engine.clients.os.sahara:ImageConstraint
+# sahara.plugin  heat.engine.clients.os.sahara:PluginConstraint
+# senlin.profile  heat.engine.clients.os.senlin:ProfileConstraint
+# timezone  heat.engine.constraint.common_constraints:TimezoneConstraint
+# trove.flavor  heat.engine.clients.os.trove:FlavorConstraint
+
+# Pseudo parameters
+
+# In addition to parameters defined by a template author, Heat also creates three parameters
+# for every stack that allow referential access to the stack’s name, stack’s identifier and project’s identifier.
+# These parameters are named
+# OS::stack_name  for the stack name
+# OS::stack_id    for the stack identifier
+# OS::project_id  for the project identifier.
+# These values are accessible via the get_param intrinsic function, just like user-defined parameters.
+

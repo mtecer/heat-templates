@@ -1,0 +1,157 @@
+heat_template_version: 2015-10-15
+
+description: Single CoreOS Instance template
+
+parameter_groups:
+  - label: CoreOS Instance
+    description: CoreOS Instance settings
+    parameters:
+      - image_id
+      - instance_type
+      - key_name
+  - label: Network Configuration
+    description: CoreOS Instance network settings
+    parameters:
+      - primary_network
+      - secondary_network
+
+# Parameters
+parameters:
+  key_name:
+    type: string
+    label: Key Name
+    description: Name of key-pair to be used for Instance
+    default: CloudOps
+    constraints:
+      - allowed_values: [ CloudOps ]
+        description: Value must be one of CloudOps
+  image_id:
+    type: string
+    label: Image ID
+    description: CoreOS Image to be used for Instance
+    default: CoreOS_921.0.0_Alpha
+    constraints:
+      - allowed_values: [ CoreOS_921.0.0_Alpha, CoreOS_899.1.0_Alpha ]
+        description: Value must be one of CoreOS_921.0.0_Alpha, CoreOS_899.1.0_Alpha
+  instance_type:
+    type: string
+    label: Instance Type
+    description: Type of instance (flavor) to be used
+    default: coreos.workers
+    constraints:
+      - allowed_values: [ coreos.services, coreos.workers, coreos.workers.medium, coreos.workers.large ]
+        description: Value must be one of coreos.services, coreos.workers, coreos.workers.medium, coreos.workers.large.
+  primary_network:
+    label: Network - eth0
+    type: string
+    description: Primary Network for the Instance
+    default: net55
+    constraints:
+      - allowed_values: [ net55, net58 ]
+        description: Value must be one of net55, net58
+  secondary_network:
+    label: Network - eth1
+    type: string
+    description: Secondary Network for the Instance
+    default: net58
+    constraints:
+      - allowed_values: [ net55, net58 ]
+        description: Value must be one of net55, net58
+
+  # os_volume_size:
+  #
+  # discovery token
+  #
+  # user-data
+  #
+  # environments
+  #
+  # proxy             Environment="HTTP_PROXY=http://10.199.103.207:3128"
+  #
+  # time server
+  #
+  # ssh_keys needed ?
+  #
+  # hostname
+  #
+  # static IP ?
+
+  # test-coreos_instance-o7ngzpfv6t6s
+
+resources:
+  os_volume:
+    type: OS::Cinder::Volume
+    properties:
+      size: 40
+      image: { get_param: image_id }
+  primary_port:
+    type: OS::Neutron::Port
+    properties:
+      network: { get_param: primary_network }
+      security_groups:
+        - default
+  secondary_port:
+    type: OS::Neutron::Port
+    properties:
+      network: { get_param: secondary_network }
+      security_groups:
+        - default
+
+# Instances
+  coreos_instance:
+    type: OS::Nova::Server
+    properties:
+      flavor: { get_param: instance_type }
+      key_name: { get_param: key_name }
+      networks:
+        - port: { get_resource: primary_port }
+        - port: { get_resource: secondary_port }
+      block_device_mapping_v2:
+        - device_name: sda
+          volume_id: { get_resource: os_volume }
+          delete_on_termination: true
+      # CoreOS Configuration
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          template: { get_file:  "http://10.199.51.10:8881/kubernetes/lib/bootstrap_coreos.sh" }
+          params:
+            $__INTERFACES: eth1*
+          #    |
+          #   #cloud-config
+          #   coreos:
+          #     units:
+          #       # - name: 10-static.network
+          #       #   content: |
+          #       #     [Match]
+          #       #     Name=eth0
+          #       #
+          #       #     [Network]
+          #       #     Address=$__IPADDRESS/24
+          #       #     Gateway=10.199.55.1
+          #       #     DNS=10.199.51.5
+          #       #     Domains=openstacklocal openstack.vm
+          #       - name: 20-dhcp.network
+          #         runtime: true
+          #         content: |
+          #           [Match]
+          #           Name=$__INTERFACES
+          #
+          #           [Network]
+          #           DHCP=no
+          # params:
+          #   $__INTERFACES: eth1*
+
+outputs:
+  networks:
+    description: Network block for the Instance
+    value: { get_attr: [coreos_instance, networks] }
+  instance_ip:
+    description: The IP address of the Instance
+    value: { get_attr: [coreos_instance, first_address] }
+  instance_primary_ip:
+    description: Primary IP address of the Instance
+    value: { get_attr: [coreos_instance, networks, net55, 0] }
+  instance_secondary_ip:
+    description: Secondary IP address of the Instance
+    value: { get_attr: [coreos_instance, networks, net58, 0] }

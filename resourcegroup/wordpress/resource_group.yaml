@@ -1,0 +1,54 @@
+# server_with_volume.yaml #############
+heat_template_version: 2015-10-15
+
+resources:
+  volume:
+    type: OS::Cinder::Volume
+    properties:
+      size: 1
+
+  volume_attachment:
+    type: OS::Cinder::VolumeAttachment
+    properties:
+      volume_id: { get_resource: volume }
+      instance_uuid: { get_resource: instance }
+
+  instance:
+    type: OS::Nova::Server
+    properties:
+      image: myimage
+      flavor: m1.small
+#######################################
+resources:
+  rg:
+    type: OS::Heat::ResourceGroup
+    properties:
+      count: 5
+      resource_def: {type: server_with_volume.yaml}
+#######################################
+# Or
+resource_registry:
+  My::Server::WithVolume: server_with_volume.yaml
+
+heat_template_version: 2015-10-15
+
+resources:
+  rg:
+    type: OS::Heat::ResourceGroup
+    properties:
+      count: 5
+      resource_def: {type: My::Server:WithVolume}
+#######################################
+resources:
+  my_indexed_group:
+    type: OS::Heat::ResourceGroup
+    properties:
+      count: 3
+      resource_def:
+        type: OS::Nova::Server
+        properties:
+          # create a unique name for each server using its index in the group
+          # my_server_0, my_server_1, and my_server_2
+          name: my_server_%index%
+          image: CentOS 6.5
+          flavor: 4GB Performance

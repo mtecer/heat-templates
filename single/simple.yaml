@@ -1,0 +1,24 @@
+heat_template_version: 2015-10-15
+
+description: Simple template to deploy a single compute instance
+
+resources:
+  os_volume:
+    type: OS::Cinder::Volume
+    properties:
+      size: 40
+      image: CentOS7_141231.095527
+      
+  centos_instance:
+    type: OS::Nova::Server
+    properties:
+      security_groups:
+        - default
+      flavor: m1.medium
+      key_name: CloudOps
+      networks:
+        - network: net58
+      block_device_mapping_v2:
+        - device_name: sda
+          volume_id: { get_resource: os_volume }
+          delete_on_termination: true

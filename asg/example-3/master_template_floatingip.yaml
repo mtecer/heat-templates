@@ -1,0 +1,13 @@
+resources:
+  # ...
+
+  floating_ip:
+    type: lib/floating_ip.yaml
+    properties:
+      port: { get_attr: [wordpress, port] }
+      public_network: { get_param: public_network }
+
+outputs:
+  ip:
+    description: The public IP address to access Wordpress.
+    value: { get_attr: [floating_ip, ip] }

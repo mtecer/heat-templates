@@ -1,0 +1,60 @@
+#######################################
+resources:
+  <resource ID>:
+    type: <resource type>
+    properties:
+      <property name>: <property value>
+    metadata:
+      <resource specific metadata>
+    depends_on: <resource ID or list of ID>
+    update_policy: <update policy>
+    deletion_policy: <deletion policy>
+#######################################
+resources:
+  server1:
+    type: OS::Nova::Server
+    depends_on: server2
+
+  server2:
+    type: OS::Nova::Server
+#######################################
+resources:
+  server1:
+    type: OS::Nova::Server
+    depends_on: [ server2, server3 ]
+
+  server2:
+    type: OS::Nova::Server
+
+  server3:
+    type: OS::Nova::Server
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,38 @@
+ tomcat_server:
+    type: OS::Nova::Server
+    properties:
+      key_name: { get_param:  ssh_key_name }
+       image: { get_param: image_id }
+       flavor: { get_param: instance_type }
+       networks:
+         - port: { get_resource: tomcat_server_port }
+       user_data:
+         str_replace:
+           template: { get_file:  "http://haasaet.web.att.com/depot/hot-skel.sh" }
+           params:
+             $APP_HOST_IP_ENV: { get_param: db_server_ip }
+             $HOTSKEL1: { get_file:  "http://haasaet.web.att.com/depot/deploy-chef-client-as3525.sh" }
+             $HOTSKEL2: { get_file:  "http://haasaet.web.att.com/depot/milestone2-app-only.sh" }
+
+  tomcat_server_port:
+    type: OS::Neutron::Port
+    properties:
+      network_id: { get_resource: CustNetZone1 }
+      fixed_ips:
+        - subnet_id: { get_resource: Zone1_Subnet }
+      security_groups: [{ get_resource: server_security_group }]
+#######################################
+resources:
+  my_instance:
+    type: OS::Nova::Server
+    properties:
+      # general properties ...
+      user_data:
+        get_file: my_instance_user_data.sh
+  my_other_instance:
+    type: OS::Nova::Server
+    properties:
+      # general properties ...
+      user_data:
+        get_file: http://example.com/my_other_instance_user_data.sh
+#######################################
